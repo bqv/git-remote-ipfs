@@ -3,8 +3,8 @@
 Push and fetch commits to IPFS with a published version of the contents.
 
 ## Installation
-1. `go get -v github.com/dhappy/git-remote-ipfs/cmd/git-remote-ipfs/...`
-2. `cp --no-dereference "$GOPATH/src/github.com/dhappy/git-remote-ipfs/cmd/git-remote-ipfs/git-remote-ipns" "$GOBIN"`
+1. `go get -v github.com/bqv/git-remote-ipfs/cmd/git-remote-ipfs/...`
+2. `cp --no-dereference "$GOPATH/src/github.com/bqv/git-remote-ipfs/cmd/git-remote-ipfs/git-remote-ipns" "$GOBIN"`
 
 #2 assumes the environment variables `$GOPATH` and `$GOBIN` are defined and `$GOBIN` is in your `$PATH`.
 
