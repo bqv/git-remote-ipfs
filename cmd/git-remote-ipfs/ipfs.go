@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -46,6 +47,12 @@ type IPFSHandler struct {
 	log *log.Logger
 
 	didPush bool
+}
+
+type CommitSig struct {
+	Name string
+	Email string
+	Date string
 }
 
 func (h *IPFSHandler) Initialize(remote *core.Remote) error {
@@ -288,6 +295,44 @@ func (h *IPFSHandler) placeCommitCID(commit *object.Commit, c string, commitNum 
 	when := commit.Author.When.Format(time.RFC3339)
 	message := strings.Split(commit.Message, "\n")[0]
 	entry := h.fileSafeName(fmt.Sprintf("%s: %s – %s", when, commit.Author.Name, message))
+
+	parentHashes := make([]string, len(commit.ParentHashes))
+	for i, hash := range commit.ParentHashes {
+		parentHashes[i] = hash.String()
+	}
+	commitData := struct {
+		Hash string
+		Author CommitSig
+		Committer CommitSig
+		PGPSignature string
+		Message string
+		ParentHashes []string
+	}{
+		Hash: commit.Hash.String(),
+		Author: CommitSig{
+			Name: commit.Author.Name,
+			Email: commit.Author.Email,
+			Date: commit.Author.When.Format(time.RFC3339),
+		},
+		Committer: CommitSig{
+			Name: commit.Committer.Name,
+			Email: commit.Committer.Email,
+			Date: commit.Committer.When.Format(time.RFC3339),
+		},
+		PGPSignature: commit.PGPSignature,
+		Message: commit.Message,
+		ParentHashes: parentHashes,
+	}
+	commitPayload, _ := json.Marshal(commitData)
+	ipldHash, err := h.api.DagPut(commitPayload, "json", "cbor")
+	if err == nil {
+		h.currentHash, _ = h.api.PatchLink(h.currentHash, fmt.Sprintf(".git/vfs/meta/by-hash/%s", commit.Hash.String()), ipldHash, true)
+		h.currentHash, _ = h.api.PatchLink(h.currentHash, fmt.Sprintf(".git/vfs/meta/by-idx/%06d", commitNum), ipldHash, true)
+		h.currentHash, _ = h.api.PatchLink(h.currentHash, fmt.Sprintf(".git/vfs/meta/by-title/%s", commit.Message), ipldHash, true)
+	} else {
+		h.log.Printf("error: %s", err)
+		h.log.Printf("dag: %#v", commitData)
+	}
 
 	h.log.Printf("Adding: %s → %s\r\x1b[A", entry, c)
 	h.currentHash, _ = h.api.PatchLink(h.currentHash, ".git/vfs/messages/"+entry, c, true)
